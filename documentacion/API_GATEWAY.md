@@ -4,7 +4,7 @@ SmartClass conserva un modo de simulación para presentaciones. El modo físico 
 
 ## Configuración
 
-En **Aula > Físico > Configuración** define la URL HTTPS del gateway, el identificador del aula y opcionalmente un token Bearer. El token solo se conserva en memoria mientras la app permanece abierta. El gateway debe tener un certificado TLS válido y accesible desde el dispositivo Android. No se permite HTTP sin cifrar.
+En **Aula > Físico > Configuración** define la URL HTTPS del gateway, el identificador del aula y opcionalmente un token Bearer. El token solo se conserva en memoria mientras la app permanece abierta. Para producción, el gateway debe tener un certificado TLS válido y accesible desde el dispositivo Android. En el APK debug, un servidor local de demostración puede usar `http://10.0.2.2:8765` desde el emulador; tanto la política de URL como la configuración de seguridad de red restringen HTTP a ese host. No se permite HTTP en release ni HTTP hacia otros hosts.
 
 IDs de actuadores que debe aceptar el gateway:
 
@@ -67,3 +67,7 @@ Cabecera: `Content-Type: application/json`; opcional `Authorization: Bearer <tok
 `state` admite `on` y `off`. Devuelve un estado HTTP 2xx al aceptar el comando. Después SmartClass vuelve a consultar el estado completo para confirmar la lectura. Cualquier error HTTP se presenta en el panel y se registra en el historial local.
 
 El gateway debe autenticar y autorizar comandos por aula, validar los IDs, aplicar límites de seguridad del HVAC/actuadores, proteger secretos y registrar las operaciones de forma durable para producción. El historial que muestra la app es local al dispositivo Android y solo conserva los últimos eventos recientes.
+
+## Gateway local de demostración
+
+`scripts/demo_gateway.py` sirve este contrato para ensayar la integración desde el emulador. Arráncalo con `python scripts/demo_gateway.py`, selecciona el modo Físico y guarda `http://10.0.2.2:8765` con el aula `aula-204`. Escucha en loopback por defecto. Conserva los comandos en memoria y genera lecturas variables; no incluye autenticación, almacenamiento durable ni conexión con hardware, por lo que es exclusivamente demostrativo.

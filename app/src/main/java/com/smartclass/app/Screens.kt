@@ -8,6 +8,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,20 +19,64 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.onFocusChanged
 
 @Composable
-internal fun HomeScreen(wide: Boolean, attendanceCount: Int, studentCount: Int, lights: Boolean, fan: Boolean, projector: Boolean, sessionActive: Boolean, teacherMode: Boolean, nextClass: String, onNavigate: (String) -> Unit) {
-    ScreenFrame("Panel del aula", "Miércoles · Jornada matutina · Grupo 5°A", wide) {
+internal fun TvHomeScreen(attendanceCount: Int, studentCount: Int, activeDevices: Int, totalDevices: Int, connectedSensors: Int, sessionActive: Boolean, nextClass: String, notice: String, onNavigate: (String) -> Unit) {
+    ScreenFrame("SmartClass en tu aula", "Resumen en tiempo real · Usa las flechas y OK del control remoto", true) {
+        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+            TvMetricCard("ASISTENCIA", "$attendanceCount / $studentCount", "Presentes hoy", Modifier.weight(1f))
+            TvMetricCard("CLASE", if (sessionActive) "En curso" else "Sin iniciar", nextClass, Modifier.weight(1f))
+            TvMetricCard("AULA", "$activeDevices / $totalDevices equipos", "$connectedSensors sensores conectados", Modifier.weight(1f))
+        }
+        SectionTitle("Acceso rápido", "Selecciona una sección con el control remoto")
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            TvActionCard("Aula", "Estado y controles del salón", Modifier.weight(1f)) { onNavigate("Aula") }
+            TvActionCard("Clases", "Horario y sesiones", Modifier.weight(1f)) { onNavigate("Clases") }
+            TvActionCard("Asistencia", "Grupos y seguimiento", Modifier.weight(1f)) { onNavigate("Gestión") }
+            TvActionCard("Avisos", "Comunicados recientes", Modifier.weight(1f)) { onNavigate("Avisos") }
+        }
+        InfoCard {
+            Text("AVISO", color = Teal, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(notice.ifBlank { "No hay avisos publicados." }, color = Ink, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun TvMetricCard(title: String, value: String, caption: String, modifier: Modifier = Modifier) {
+    Column(modifier.background(Color.White, RoundedCornerShape(20.dp)).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, color = Teal, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = Navy, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(caption, color = Muted, fontSize = 17.sp, maxLines = 2)
+    }
+}
+
+@Composable
+private fun TvActionCard(title: String, subtitle: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    var focused by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    Column(modifier.onFocusChanged { focused = it.isFocused }.clickable(onClick = onClick)
+        .then(if (focused) Modifier.border(4.dp, Teal, RoundedCornerShape(20.dp)) else Modifier)
+        .background(if (focused) Navy2 else Navy, RoundedCornerShape(20.dp)).padding(22.dp)) {
+        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(subtitle, color = Color(0xFFCBD5E1), fontSize = 16.sp)
+    }
+}
+
+@Composable
+internal fun HomeScreen(wide: Boolean, attendanceCount: Int, studentCount: Int, activeDevices: Int, totalDevices: Int, connectedSensors: Int, sessionActive: Boolean, teacherMode: Boolean, subtitle: String, nextClass: String, onNavigate: (String) -> Unit) {
+    ScreenFrame("Panel del aula", subtitle, wide) {
         if (wide) Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             MetricCard("ASISTENCIA", "$attendanceCount/$studentCount", "Estudiantes presentes", Icons.Default.Groups, Modifier.weight(1f))
-            MetricCard("DISPOSITIVOS", "${listOf(lights, fan, projector).count { it }}/3", "Equipos activos", Icons.Default.Devices, Modifier.weight(1f))
+            MetricCard("EQUIPOS", "$activeDevices/$totalDevices", "$connectedSensors sensores conectados", Icons.Default.Devices, Modifier.weight(1f))
             MetricCard("SESIÓN", if (sessionActive) "En curso" else "Finalizada", "Clase de hoy", Icons.Default.EventAvailable, Modifier.weight(1f))
         } else {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MetricCard("ASISTENCIA", "$attendanceCount/$studentCount", "Presentes", Icons.Default.Groups, Modifier.weight(1f))
-                MetricCard("DISPOSITIVOS", "${listOf(lights, fan, projector).count { it }}/3", "Activos", Icons.Default.Devices, Modifier.weight(1f))
+                MetricCard("EQUIPOS", "$activeDevices/$totalDevices", "Sensores conectados: $connectedSensors", Icons.Default.Devices, Modifier.weight(1f))
             }
-            MetricCard("SESIÓN DE CLASE", if (sessionActive) "En curso" else "Finalizada", "Grupo 5°A · hoy", Icons.Default.EventAvailable)
+            MetricCard("SESIÓN DE CLASE", if (sessionActive) "En curso" else "Finalizada", subtitle, Icons.Default.EventAvailable)
         }
         SectionTitle("Acceso rápido", "Las tareas frecuentes del aula, en un solo lugar")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -44,7 +92,7 @@ internal fun HomeScreen(wide: Boolean, attendanceCount: Int, studentCount: Int, 
             }
             InfoCard(Modifier.weight(1f)) {
                 SectionTitle("Estado del aula", "Resumen del equipamiento")
-                StatusPill("Iluminación", lights); StatusPill("Ventilación", fan); StatusPill("Proyector", projector)
+                StatusPill("Equipos activos", activeDevices > 0); StatusPill("Sensores", connectedSensors > 0)
                 Button(onClick = { onNavigate("Clases") }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Navy)) { Icon(if (sessionActive) Icons.Default.StopCircle else Icons.Default.PlayCircle, null); Spacer(Modifier.width(8.dp)); Text(if (sessionActive) "Administrar sesión" else "Iniciar clase") }
                 TextButton(onClick = { onNavigate("Cuenta") }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AccountCircle, null); Spacer(Modifier.width(5.dp)); Text("Cuenta, seguridad y respaldos") }
             }
@@ -55,8 +103,7 @@ internal fun HomeScreen(wide: Boolean, attendanceCount: Int, studentCount: Int, 
             }
             InfoCard {
                 SectionTitle("Estado del aula")
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { StatusPill("Luces", lights); StatusPill("Ventilador", fan) }
-                StatusPill("Proyector", projector)
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { StatusPill("Equipos activos", activeDevices > 0); StatusPill("Sensores", connectedSensors > 0) }
                 Button(onClick = { onNavigate("Clases") }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Navy)) { Text(if (sessionActive) "Administrar sesión" else "Iniciar clase") }
                 TextButton(onClick = { onNavigate("Cuenta") }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Default.AccountCircle, null); Spacer(Modifier.width(5.dp)); Text("Cuenta y respaldos") }
             }

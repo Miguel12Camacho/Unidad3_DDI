@@ -56,7 +56,9 @@ internal fun ClassScheduleScreen(
     teacherId: String,
     bearerToken: String,
     onDataChange: (AcademicData) -> Unit,
-    onDevicesPowered: (Set<String>) -> Unit,
+    onNotification: (SmartNotification) -> Unit = {},
+    onDevicesChanged: (Map<String, Boolean>) -> Unit,
+    onSnapshotChanged: (ClassroomSnapshot) -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     val gateway = remember { SmartClassRestGateway() }
@@ -76,15 +78,7 @@ internal fun ClassScheduleScreen(
     val selectedTeacher = data.teachers.firstOrNull { it.id == teacherId }
 
     fun conflicts(candidate: ScheduledClass): List<String> {
-        val start = runCatching { LocalTime.parse(candidate.startTime) }.getOrNull() ?: return emptyList()
-        val end = runCatching { LocalTime.parse(candidate.endTime) }.getOrNull() ?: return emptyList()
-        return data.schedule.filter { it.id != candidate.id && it.dayOfWeek == candidate.dayOfWeek }.filter { other ->
-            val otherStart = runCatching { LocalTime.parse(other.startTime) }.getOrNull() ?: return@filter false
-            val otherEnd = runCatching { LocalTime.parse(other.endTime) }.getOrNull() ?: return@filter false
-            val overlaps = start < otherEnd && otherStart < end
-            val sharedResource = candidate.groupId == other.groupId || candidate.teacherId == other.teacherId || candidate.room.equals(other.room, true)
-            overlaps && sharedResource
-        }.map { other ->
+        return ScheduleRules.conflicts(data.schedule, candidate).map { other ->
             val reason = when {
                 candidate.groupId == other.groupId -> "el mismo grupo ${data.groups.firstOrNull { g -> g.id == other.groupId }?.name.orEmpty()}"
                 candidate.teacherId == other.teacherId -> "el mismo docente ${data.teachers.firstOrNull { t -> t.id == other.teacherId }?.name.orEmpty()}"
@@ -124,8 +118,9 @@ internal fun ClassScheduleScreen(
                 }
             }
             editor.apply()
-            onDevicesPowered(scheduled.powerOnDeviceIds.toSet())
+            onDevicesChanged(scheduled.powerOnDeviceIds.associateWith { true })
             liveSnapshot = ClassroomSnapshot(devices = scheduled.powerOnDeviceIds.associateWith { true })
+            onSnapshotChanged(liveSnapshot!!)
             message = "Sesión iniciada · ${scheduled.powerOnDeviceIds.size} equipo(s) preparados en simulación."
             return
         }
@@ -144,6 +139,7 @@ internal fun ClassScheduleScreen(
                     gateway.readSnapshot(baseUrl, classroomId, bearerToken.ifBlank { null })
                 }
                 liveSnapshot = snapshot
+                onSnapshotChanged(snapshot)
                 message = "Sesión iniciada · gateway confirmó el estado del aula."
             } catch (error: Exception) {
                 message = "Sesión iniciada, pero algunos equipos no confirmaron el comando: ${error.message?.take(100) ?: "error de conexión"}"
@@ -155,7 +151,38 @@ internal fun ClassScheduleScreen(
         val current = activeSession ?: return
         val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         onDataChange(data.copy(sessions = data.sessions.map { if (it.id == current.id) it.copy(endedAt = now) else it }))
-        message = "Clase finalizada · ${current.subjectName}"
+        val devicesToOff = PowerableDevices.map { it.first }
+        if (!prefs.getBoolean("physical_mode", false)) {
+            devicesToOff.forEach { prefs.edit().putBoolean("classroom_device_$it", false).apply() }
+            onDevicesChanged(devicesToOff.associateWith { false })
+            liveSnapshot = (liveSnapshot ?: ClassroomSnapshot()).copy(devices = liveSnapshot?.devices.orEmpty() + devicesToOff.associateWith { false })
+            onSnapshotChanged(liveSnapshot!!)
+            message = "Clase finalizada · luces, clima y proyector apagados en la simulación."
+            return
+        }
+        val baseUrl = prefs.getString("gateway_url", "").orEmpty()
+        val classroomId = prefs.getString("gateway_classroom", "aula-204").orEmpty()
+        if (baseUrl.isBlank()) {
+            message = "Clase finalizada · configura el gateway para apagar los equipos del aula."
+            onNotification(NotificationRepository.fresh(NoticeCategory.ROOM, "Equipos del aula pendientes", "La sesión terminó, pero no se configuró un gateway para apagar luces, clima y proyector.", "MEDIA", "session:${current.id}:shutdown"))
+            return
+        }
+        scope.launch {
+            busy = true
+            try {
+                val snapshot = withContext(Dispatchers.IO) {
+                    devicesToOff.forEach { gateway.setDevice(baseUrl, classroomId, it, false, bearerToken.ifBlank { null }) }
+                    gateway.readSnapshot(baseUrl, classroomId, bearerToken.ifBlank { null })
+                }
+                liveSnapshot = snapshot
+                onSnapshotChanged(snapshot)
+                onDevicesChanged(devicesToOff.associateWith { false })
+                message = "Clase finalizada · gateway confirmó el apagado de luces, clima y proyector."
+            } catch (error: Exception) {
+                message = "Clase finalizada, pero no se confirmó el apagado: ${error.message?.take(120) ?: "error de conexión"}."
+                onNotification(NotificationRepository.fresh(NoticeCategory.CONNECTION, "No se confirmó el apagado del aula", message, "ALTA", "session:${current.id}:shutdown"))
+            } finally { busy = false }
+        }
     }
 
     ScreenFrame("Clases y horarios", "Materias, programación semanal y sesiones del aula", wide) {

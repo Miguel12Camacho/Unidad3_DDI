@@ -2,8 +2,18 @@ package com.smartclass.app
 
 import android.net.Uri
 import org.json.JSONObject
+import java.net.URI
 import java.net.HttpURLConnection
 import java.net.URL
+
+internal object GatewayUrlPolicy {
+    fun isAllowed(baseUrl: String, allowDebugHttp: Boolean): Boolean {
+        val uri = runCatching { URI(baseUrl.trim().trimEnd('/')) }.getOrNull() ?: return false
+        if (uri.host.isNullOrBlank() || uri.userInfo != null) return false
+        return uri.scheme.equals("https", ignoreCase = true) ||
+            (allowDebugHttp && uri.scheme.equals("http", ignoreCase = true) && uri.host.equals("10.0.2.2", ignoreCase = true))
+    }
+}
 
 /** Neutral classroom API contract implemented by the app and a school-side IoT gateway. */
 internal data class ClassroomSnapshot(

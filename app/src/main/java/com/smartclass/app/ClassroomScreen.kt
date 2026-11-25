@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -61,8 +62,16 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
         val savedDevices = Devices.associate { device -> device.id to prefs.getBoolean("classroom_device_${device.id}", DemoSnapshot.devices[device.id] ?: false) }
         mutableStateOf(if (physicalMode) ClassroomSnapshot() else DemoSnapshot.copy(devices = savedDevices))
     }
+    var telemetryStep by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(snapshot) { onSnapshotChanged(snapshot) }
+    LaunchedEffect(physicalMode) {
+        if (!physicalMode) while (true) {
+            delay(4_000)
+            telemetryStep += 1
+            snapshot = ClassroomDemoTelemetry.sample(snapshot, telemetryStep)
+        }
+    }
     var history by remember { mutableStateOf(prefs.getString("$CLASSROOM_HISTORY_KEY:$classroomId", null)?.lines()?.filter(String::isNotBlank).orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var connectionMessage by remember { mutableStateOf(if (physicalMode) "Modo físico seleccionado · configura el gateway para leer equipos." else "Simulación activa · estados demostrativos") }
@@ -82,8 +91,8 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
     }
 
     fun readGateway(tokenOverride: String? = null) {
-        if (baseUrl.isBlank() || !baseUrl.startsWith("https://", ignoreCase = true)) {
-            connectionMessage = "Configura una dirección HTTPS segura del gateway escolar."
+        if (!GatewayUrlPolicy.isAllowed(baseUrl, BuildConfig.DEBUG)) {
+            connectionMessage = if (BuildConfig.DEBUG) "Usa HTTPS o http://10.0.2.2 para el gateway de demostración." else "Configura una dirección HTTPS segura del gateway escolar."
             return
         }
         scope.launch {
@@ -137,6 +146,46 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
         }
     }
 
+    fun applyClassScene(startClass: Boolean) {
+        val scene = mapOf(
+            "light_front" to startClass, "light_center" to startClass, "light_back" to startClass,
+            "fan_main" to startClass, "ac_main" to startClass, "projector" to startClass,
+        )
+        if (!physicalMode) {
+            snapshot = snapshot.copy(devices = snapshot.devices + scene)
+            val editor = prefs.edit()
+            scene.forEach { (id, enabled) -> editor.putBoolean("classroom_device_$id", enabled) }
+            editor.putBoolean("lights", startClass).putBoolean("fan", startClass).putBoolean("projector", startClass).apply()
+            onDashboardDeviceChange("lights", startClass)
+            onDashboardDeviceChange("fan", startClass)
+            onDashboardDeviceChange("projector", startClass)
+            connectionMessage = if (startClass) "Escena lista · luces, proyector y clima encendidos." else "Escena finalizada · luces, proyector y clima apagados."
+            addHistory(if (startClass) "Escena Iniciar clase" else "Escena Terminar clase")
+            return
+        }
+        if (baseUrl.isBlank()) {
+            connectionMessage = "Configura el gateway para ejecutar esta escena."
+            showSettings = true
+            return
+        }
+        scope.launch {
+            busy = true
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    scene.forEach { (id, enabled) -> gateway.setDevice(baseUrl, classroomId, id, enabled, bearerToken.ifBlank { null }) }
+                    gateway.readSnapshot(baseUrl, classroomId, bearerToken.ifBlank { null })
+                }
+                snapshot = result
+                connectionMessage = "Escena confirmada por el gateway · ${if (startClass) "clase iniciada" else "clase terminada"}."
+                onConnectionRestored()
+                addHistory(if (startClass) "Escena Iniciar clase · gateway" else "Escena Terminar clase · gateway")
+            } catch (error: Exception) {
+                connectionMessage = "La escena no se completó: ${error.message?.take(120) ?: "error de conexión"}."
+                onNotification(NotificationRepository.fresh(NoticeCategory.CONNECTION, "No se pudo completar la escena del aula", connectionMessage, "ALTA", "live:connection:gateway"))
+            } finally { busy = false }
+        }
+    }
+
     ScreenFrame("Control del aula", "Dispositivos, sensores, conectividad e historial · Aula $classroomId", wide) {
         InfoCard {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -161,6 +210,13 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
             Text(connectionMessage, color = if (connectionMessage.contains("conectado", true) || connectionMessage.contains("simulación activa", true)) Teal else Muted, fontSize = 12.sp)
             if (physicalMode) Text("Los interruptores y sensores muestran datos físicos solo después de conectar el gateway.", color = Muted, fontSize = 11.sp)
         }
+
+        SectionTitle("Escenas de clase", "Acciones rápidas para preparar o cerrar el aula")
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            SceneTile("Iniciar clase", "Luces · proyector · clima", Icons.Default.PlayCircle, Modifier.weight(1f), enabled = !busy) { applyClassScene(true) }
+            SceneTile("Terminar clase", "Apaga luz, proyección y clima", Icons.Default.StopCircle, Modifier.weight(1f), enabled = !busy) { applyClassScene(false) }
+        }
+        Text("Las escenas no modifican la alarma de seguridad.", color = Muted, fontSize = 11.sp)
 
         SectionTitle("Iluminación por zonas", "Cada zona se controla de forma independiente")
         if (wide) {
@@ -208,7 +264,7 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
     }
 
     if (showSettings) {
-        GatewaySettingsDialog(baseUrl, classroomId, bearerToken, onDismiss = { showSettings = false }, onSave = { url, id, token ->
+        GatewaySettingsDialog(baseUrl, classroomId, bearerToken, allowDebugHttp = BuildConfig.DEBUG, onDismiss = { showSettings = false }, onSave = { url, id, token ->
             baseUrl = url.trimEnd('/'); classroomId = id
             prefs.edit().putString("gateway_url", baseUrl).putString("gateway_classroom", classroomId).putBoolean("physical_mode", physicalMode).apply()
             history = prefs.getString("$CLASSROOM_HISTORY_KEY:$classroomId", null)?.lines()?.filter(String::isNotBlank).orEmpty()
@@ -216,6 +272,18 @@ internal fun ClassroomScreen(wide: Boolean, prefs: SharedPreferences, bearerToke
             onBearerTokenChange(token)
             if (physicalMode) readGateway(token.ifBlank { null })
         })
+    }
+}
+
+@Composable
+private fun SceneTile(title: String, subtitle: String, icon: ImageVector, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
+    ElevatedButton(onClick = onClick, enabled = enabled, modifier = modifier.heightIn(min = 112.dp), shape = RoundedCornerShape(18.dp), colors = ButtonDefaults.elevatedButtonColors(containerColor = Navy, contentColor = Color.White), contentPadding = PaddingValues(18.dp)) {
+        Icon(icon, null, modifier = Modifier.size(34.dp))
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(subtitle, fontSize = 12.sp, color = Color(0xFFCBD5E1))
+        }
     }
 }
 
@@ -259,7 +327,7 @@ private fun ConnectionLabel(connected: Boolean?) {
 }
 
 @Composable
-private fun GatewaySettingsDialog(initialUrl: String, initialClassroom: String, initialToken: String, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
+private fun GatewaySettingsDialog(initialUrl: String, initialClassroom: String, initialToken: String, allowDebugHttp: Boolean, onDismiss: () -> Unit, onSave: (String, String, String) -> Unit) {
     var url by remember(initialUrl) { mutableStateOf(initialUrl) }
     var classroom by remember(initialClassroom) { mutableStateOf(initialClassroom) }
     var token by remember { mutableStateOf(initialToken) }
@@ -279,7 +347,7 @@ private fun GatewaySettingsDialog(initialUrl: String, initialClassroom: String, 
         },
         confirmButton = { TextButton(onClick = {
             val cleanUrl = url.trim().trimEnd('/')
-            if (!cleanUrl.startsWith("https://", ignoreCase = true)) error = "La dirección del gateway debe comenzar con https://"
+            if (!GatewayUrlPolicy.isAllowed(cleanUrl, allowDebugHttp)) error = if (allowDebugHttp) "Usa https:// o el host de emulador http://10.0.2.2." else "La dirección del gateway debe comenzar con https://"
             else if (classroom.isBlank()) error = "Escribe el identificador del aula."
             else onSave(cleanUrl, classroom.trim(), token.trim())
         }) { Text("Guardar y conectar") } },
