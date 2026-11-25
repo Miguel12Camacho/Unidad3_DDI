@@ -37,7 +37,7 @@ Proyecto Android nativo desarrollado con Kotlin y Jetpack Compose.
 > Android solicita permiso para mostrar notificaciones del sistema. El centro dentro de la app sigue disponible si el permiso se deniega. Los eventos de sensores físicos dependen de lecturas recibidas del gateway.
 
 ## Compatibilidad
-La aplicación Android se adapta a teléfonos, tabletas y ventanas redimensionables en ChromeOS. En Android TV/Google TV abre una experiencia independiente horizontal, con márgenes seguros, tipografía grande, controles de TV Material y launcher Leanback con banner. Flechas y OK recorren las acciones; Atrás vuelve al panel de clase y desde ahí cierra la app. La TV es de consulta y control breve: formularios, cuentas y configuración quedan en el teléfono. El APK no es compatible con sistemas propietarios como Samsung Tizen o LG webOS.
+La aplicación Android se adapta a teléfonos, tabletas y ventanas redimensionables en ChromeOS. En Android TV/Google TV abre una experiencia independiente horizontal con TV Material. También hay un paquete webOS instalable para televisores LG y un proyecto Tizen compartido para Samsung; ambos usan HTML/CSS/JavaScript y D-pad. Los archivos de plataforma y conexión se documentan en [`documentacion/TV_WEBOS_HOME_ASSISTANT.md`](documentacion/TV_WEBOS_HOME_ASSISTANT.md). Son clientes distintos del APK Android.
 
 ## Requisitos
 - Android Studio reciente, JDK 17, Android SDK Platform 35.
@@ -56,10 +56,12 @@ No hay un usuario o una contraseña de prueba preconfigurados. Al abrir por prim
 ## Generar APK
 Android Studio: **Build > Build Bundle(s) / APK(s) > Build APK(s)**. El APK de depuración aparece normalmente en `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Gateway de demostración (solo debug)
-El script incluido implementa el contrato REST con actuadores y lecturas simulados en memoria. Desde la raíz del proyecto, ejecuta `python scripts/demo_gateway.py`. En el teléfono, configura **Aula > Físico > Configuración** con `http://10.0.2.2:8765` y el aula `aula-204`; en el panel TV **Estado y controles**, el mosaico **Conectar demo** usa esa dirección y aula. El servidor se vincula por defecto solo a loopback; `10.0.2.2` es el puente del emulador hacia la computadora. El modo debug acepta HTTP únicamente para ese host y la configuración de seguridad de red lo limita también a ese destino. Las variantes release requieren HTTPS. El servidor no autentica, no persiste estado y solo sirve para demostraciones controladas; no lo expongas a redes públicas ni lo uses para operar hardware real.
+## Gateway de demostración y equipos reales
+`python scripts/demo_gateway.py` sirve el contrato REST en memoria para pruebas sin hardware. Para una demostración física, configura Home Assistant, crea un mapeo de entidades y ejecuta el servidor con `SMARTCLASS_HA_URL`, `SMARTCLASS_HA_TOKEN`, `SMARTCLASS_HA_MAPPING` y `SMARTCLASS_CLIENT_TOKEN`; las instrucciones completas están en [`documentacion/TV_WEBOS_HOME_ASSISTANT.md`](documentacion/TV_WEBOS_HOME_ASSISTANT.md). Home Assistant debe integrar previamente cada equipo. La variante física envía servicios reales y requiere mapear los IDs de luz, ventilador, clima, proyector y alarma a entidades del aula. Expón el gateway solo en una red local aislada.
 
 `Iniciar clase` en Aula enciende las tres zonas de luz, proyector y ventilación/clima; `Terminar clase` los apaga. La alarma de seguridad queda sin cambios. Al finalizar una sesión desde Clases se apagan luces, clima y proyector; si falla el gateway, la app muestra un aviso y el estado se debe revisar manualmente.
+
+El panel Smart TV también se sirve desde el gateway en `/` y ofrece estado, sensores, controles individuales y escenas con el control remoto. Para webOS se genera `build/webos/com.smartclass.tv_1.0.0_all.ipk` con el CLI oficial; la instalación en una TV se realiza con Developer Mode. No se ha probado en un LG físico en esta entrega.
 
 ## Estructura
 - `app/src/main/java/com/smartclass/app/MainActivity.kt`: estado, persistencia local y navegación adaptable.

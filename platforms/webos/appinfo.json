@@ -1,0 +1,10 @@
+{
+  "id": "com.smartclass.tv",
+  "version": "1.0.0",
+  "vendor": "SmartClass",
+  "type": "web",
+  "main": "index.html",
+  "title": "SmartClass TV",
+  "icon": "icon.png",
+  "requiredACG": []
+}

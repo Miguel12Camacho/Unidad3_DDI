@@ -16,10 +16,10 @@ Resultado: **BUILD SUCCESSFUL**. Se generó `app/build/outputs/apk/debug/app-deb
 
 Resultado de `testDebugUnitTest`: **8 pruebas aprobadas, 0 fallidas** (`ScheduleRulesTest`). Cubren horarios contiguos e inválidos, detección de conflictos, destinos HTTP permitidos solo en debug, variación de telemetría con umbral de alerta, resumen de asistencia por grupo/fecha, clase actual y tiempo restante, y siguiente clase en modo ambiente.
 
-El servidor `scripts/demo_gateway.py` también se verificó localmente: `GET` devolvió actuadores/sensores; un `POST` apagó `light_front` y la lectura siguiente confirmó el estado. Esto comprueba el contrato de demostración, no hardware físico.
+Se ejecutaron cuatro pruebas de `scripts/test_demo_gateway.py`: estado y comandos del modo memoria, lectura simulada y llamada de servicio Home Assistant mediante un HTTP mock, autorización del cliente, y conversiones de sensores. También se empaquetó la app webOS con el CLI oficial; resultado: `build/webos/com.smartclass.tv_1.0.0_all.ipk` (10,924 bytes). Estas pruebas validan el adaptador y el paquete, no la conexión a una instalación Home Assistant ni el accionamiento de hardware real.
 
 ### 20.4.3 Ejecución visual y capturas
 
-No se ejecutó un emulador ni un dispositivo en esta revisión, conforme a la instrucción del usuario de no hacer emulaciones. Por lo tanto, no hay capturas reales y la navegación D-pad, el foco en pantalla y el recorte de imagen en una TV no se presentan como verificados visualmente. El APK compilado y las pruebas unitarias no reemplazan esa evidencia visual.
+No se ejecutó un emulador ni un televisor físico en esta revisión. La instrucción del usuario fue no hacer emulaciones. Por lo tanto, no hay capturas reales ni se afirma haber comprobado el D-pad, el foco y los márgenes en un LG webOS físico.
 
-La TV implementada incluye una experiencia independiente con panel de clase/modo ambiente, asistencia, avisos rotativos, estado y control de aula, importación de respaldo JSON y controles TV Material. Para completar la evidencia visual en una entrega futura, se puede instalar el APK en Android TV real o en un emulador **Television**, recorrer cada sección con el control remoto y guardar las capturas.
+El cliente webOS ofrece estado de aula, lecturas, alertas, mosaicos/escenas y conexión al gateway con control remoto. Para completar evidencia visual y física, instala el `.ipk` en una TV LG webOS de destino, conéctala al gateway/Home Assistant y verifica que un control se refleje tanto en la TV como en la entidad física. No se enviaron comandos a equipos reales durante esta revisión.

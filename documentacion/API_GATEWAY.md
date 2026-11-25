@@ -68,6 +68,8 @@ Cabecera: `Content-Type: application/json`; opcional `Authorization: Bearer <tok
 
 El gateway debe autenticar y autorizar comandos por aula, validar los IDs, aplicar límites de seguridad del HVAC/actuadores, proteger secretos y registrar las operaciones de forma durable para producción. El historial que muestra la app es local al dispositivo Android y solo conserva los últimos eventos recientes.
 
-## Gateway local de demostración
+## Gateway local y conexión física
 
-`scripts/demo_gateway.py` sirve este contrato para ensayar la integración desde el emulador. Arráncalo con `python scripts/demo_gateway.py`, selecciona el modo Físico y guarda `http://10.0.2.2:8765` con el aula `aula-204`. Escucha en loopback por defecto. Conserva los comandos en memoria y genera lecturas variables; no incluye autenticación, almacenamiento durable ni conexión con hardware, por lo que es exclusivamente demostrativo.
+`scripts/demo_gateway.py` sirve el contrato y la interfaz SmartClass TV en `/`. Sin configuración Home Assistant usa estados in-memory y no controla hardware. Para conectar dispositivos reales, consulta [`TV_WEBOS_HOME_ASSISTANT.md`](TV_WEBOS_HOME_ASSISTANT.md): configura Home Assistant, el mapeo de entidades y los secretos de servidor, y arranca el proceso con `--host 0.0.0.0` en una red local controlada. El modo físico requiere una `SMARTCLASS_CLIENT_TOKEN`; la interfaz web la envía como Bearer. El token de Home Assistant nunca se envía al televisor.
+
+El backend consulta `/api/states` de Home Assistant y ejecuta el servicio configurado por actuador (`POST /api/services/{domain}/{service}`). El resultado es una orden real a una entidad integrada de Home Assistant, no garantía de movimiento mecánico; verifica la lectura reportada y el dispositivo. Usa HTTPS/reverse proxy y restringe la red al desplegar fuera de una demostración local.

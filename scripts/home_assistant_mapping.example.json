@@ -1,0 +1,51 @@
+{
+  "classroom_id": "aula-204",
+  "devices": {
+    "light_front": {
+      "entity_id": "light.aula_frente",
+      "on_service": "light/turn_on",
+      "off_service": "light/turn_off"
+    },
+    "light_center": {
+      "entity_id": "light.aula_centro",
+      "on_service": "light/turn_on",
+      "off_service": "light/turn_off"
+    },
+    "light_back": {
+      "entity_id": "light.aula_fondo",
+      "on_service": "light/turn_on",
+      "off_service": "light/turn_off"
+    },
+    "fan_main": {
+      "entity_id": "fan.aula",
+      "on_service": "fan/turn_on",
+      "off_service": "fan/turn_off"
+    },
+    "ac_main": {
+      "entity_id": "climate.aula",
+      "on_service": "climate/set_hvac_mode",
+      "off_service": "climate/set_hvac_mode",
+      "on_data": {"hvac_mode": "cool"},
+      "off_data": {"hvac_mode": "off"},
+      "on_states": ["cool", "heat", "auto", "fan_only", "dry"]
+    },
+    "projector": {
+      "entity_id": "switch.proyector_aula",
+      "on_service": "switch/turn_on",
+      "off_service": "switch/turn_off"
+    },
+    "security_alarm": {
+      "entity_id": "switch.alarma_aula",
+      "on_service": "switch/turn_on",
+      "off_service": "switch/turn_off"
+    }
+  },
+  "sensors": {
+    "temperatureC": {"entity_id": "sensor.aula_temperatura", "connected_id": "sensor_temperature"},
+    "humidityPercent": {"entity_id": "sensor.aula_humedad", "connected_id": "sensor_humidity"},
+    "airQualityPpm": {"entity_id": "sensor.aula_co2", "connected_id": "sensor_air"},
+    "motionDetected": {"entity_id": "binary_sensor.aula_movimiento", "connected_id": "sensor_motion", "true_states": ["on"]},
+    "doorOpen": {"entity_id": "binary_sensor.aula_puerta", "connected_id": "sensor_door", "true_states": ["on"]},
+    "windowOpen": {"entity_id": "binary_sensor.aula_ventana", "connected_id": "sensor_window", "true_states": ["on"]}
+  }
+}
