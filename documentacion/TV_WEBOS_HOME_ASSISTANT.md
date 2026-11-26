@@ -21,6 +21,8 @@ Requiere una TV LG con webOS TV, una computadora en la misma red y la aplicació
 6. Inicia la app: `ares-launch -d lg-aula com.smartclass.tv`.
 7. En **Gateway**, introduce la URL del equipo que ejecuta `demo_gateway.py`, por ejemplo `http://192.168.1.20:8765`, y la clave de cliente configurada en ese servidor.
 
+En Windows también puedes ejecutar `scripts/build_webos.ps1` desde PowerShell; sincroniza los archivos compartidos y genera el `.ipk` dentro de `build/webos/`. La acción de GitHub **Build TV install packages** genera el `.ipk` de webOS y el APK Android TV como artefacto descargable `smartclass-tv-installers`.
+
 La app usa HTML, CSS y JavaScript estándar para webOS TV. La compatibilidad visual final se debe confirmar en el modelo y versión webOS de destino; no se ejecutó un simulador ni se probó una TV física en este equipo de desarrollo.
 
 ## Abrir en Samsung Tizen

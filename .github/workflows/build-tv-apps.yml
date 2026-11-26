@@ -1,0 +1,52 @@
+name: Build TV install packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "platforms/**"
+      - "scripts/prepare_tv_apps.py"
+      - "scripts/build_webos.ps1"
+      - "app/build.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - ".github/workflows/build-tv-apps.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "16.20.2"
+
+      - name: Build Android and Android TV APK
+        run: ./gradlew --no-daemon assembleDebug
+
+      - name: Install webOS CLI
+        run: npm install --global @webos-tools/cli
+
+      - name: Package LG webOS TV app
+        run: |
+          python3 scripts/prepare_tv_apps.py
+          mkdir -p build/webos
+          ares-package platforms/webos -o build/webos
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: smartclass-tv-installers
+          if-no-files-found: error
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            build/webos/*.ipk

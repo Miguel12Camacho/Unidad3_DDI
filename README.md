@@ -63,6 +63,14 @@ Android Studio: **Build > Build Bundle(s) / APK(s) > Build APK(s)**. El APK de d
 
 El panel Smart TV también se sirve desde el gateway en `/` y ofrece estado, sensores, controles individuales y escenas con el control remoto. Para webOS se genera `build/webos/com.smartclass.tv_1.0.0_all.ipk` con el CLI oficial; la instalación en una TV se realiza con Developer Mode. No se ha probado en un LG físico en esta entrega.
 
+### Paquetes instalables para TV
+
+- Android TV y dispositivos Android: `dist/SmartClass-Android-TV-and-devices-1.0-debug.apk` (también se genera en `app/build/outputs/apk/debug/`).
+- LG webOS: ejecuta `scripts/build_webos.ps1` en PowerShell con Node.js y el CLI oficial instalado (`npm install --global @webos-tools/cli`). El paquete `.ipk` queda en `build/webos/`.
+- GitHub Actions genera ambos instaladores al actualizar `main` o al ejecutar manualmente **Build TV install packages** en la pestaña **Actions**. Descarga `smartclass-tv-installers` desde el resultado de la ejecución.
+
+El `.ipk` es para televisores LG con webOS; el APK es para Android TV/Google TV y dispositivos Android. Samsung Tizen requiere su SDK y certificado de firma para producir un `.wgt` instalable.
+
 ## Estructura
 - `app/src/main/java/com/smartclass/app/MainActivity.kt`: estado, persistencia local y navegación adaptable.
 - `app/src/main/java/com/smartclass/app/Screens.kt`: panel, aula, asistencia y avisos.
