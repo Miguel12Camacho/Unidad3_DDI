@@ -32,7 +32,7 @@ jobs:
           node-version: "16.20.2"
 
       - name: Build Android and Android TV APK
-        run: ./gradlew --no-daemon assembleDebug
+        run: bash ./gradlew --no-daemon assembleDebug
 
       - name: Install webOS CLI
         run: npm install --global @webos-tools/cli
